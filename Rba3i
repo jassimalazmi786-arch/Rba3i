@@ -1,0 +1,146 @@
+import random
+import requests
+import time
+import os
+from datetime import datetime
+
+# قائمة الأحرف والأرقام المسموحة في اليوزر الرباعي
+CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789_'
+
+# الألوان لتنسيق المخرجات (اختياري)
+class Colors:
+    GREEN = '\033[92m'
+    RED = '\033[91m'
+    YELLOW = '\033[93m'
+    BLUE = '\033[94m'
+    RESET = '\033[0m'
+
+def generate_username():
+    """توليد اسم مستخدم عشوائي بطول 4 أحرف"""
+    return ''.join(random.choices(CHARS, k=4))
+
+def check_username(username):
+    """التحقق من توفر اسم المستخدم على تيك توك"""
+    url = f"https://www.tiktok.com/@{username}"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=5, allow_redirects=True)
+        # إذا كان الحالة 404 يعني اليوزر غير موجود (متاح)
+        # إذا كان 200 أو 302 يعني اليوزر موجود
+        return response.status_code == 404
+    except requests.RequestException:
+        return False
+
+def save_results(usernames):
+    """حفظ الأسماء المتاحة في ملف"""
+    filename = f"tiktok_usernames_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+    with open(filename, 'w', encoding='utf-8') as f:
+        f.write(f"تم العثور على {len(usernames)} اسم متاح\n")
+        f.write(f"وقت البحث: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write("="*50 + "\n\n")
+        for username in usernames:
+            f.write(f"https://www.tiktok.com/@{username}\n")
+            f.write(f"@{username}\n\n")
+    return filename
+
+def print_banner():
+    """طباعة الشعار"""
+    banner = f"""
+{Colors.BLUE}╔══════════════════════════════════════════════════════════╗
+║                                                          ║
+║     TikTok Username Finder - البحث عن يوزرات رباعية     ║
+║                                                          ║
+║     يبحث عن أسماء مستخدمين بطول 4 أحرف/أرقام/رمز _     ║
+║                                                          ║
+╚══════════════════════════════════════════════════════════╝{Colors.RESET}
+    """
+    print(banner)
+
+def main():
+    print_banner()
+    
+    # إعدادات البحث
+    print(f"{Colors.YELLOW}⚙️  إعدادات البحث:{Colors.RESET}")
+    try:
+        max_attempts = int(input(f"   عدد المحاولات (افتراضي 100): ") or 100)
+        delay = float(input(f"   التأخير بين المحاولات بالثواني (افتراضي 1.5): ") or 1.5)
+        save_output = input(f"   حفظ النتائج في ملف؟ (y/n, افتراضي y): ").lower() != 'n'
+    except:
+        max_attempts = 100
+        delay = 1.5
+        save_output = True
+    
+    print(f"\n{Colors.GREEN}🔍 بدء البحث...{Colors.RESET}")
+    print(f"📊 سيتم تجربة {max_attempts} اسم مستخدم مع تأخير {delay} ثانية بين كل محاولة\n")
+    print("="*60)
+    
+    found_usernames = []
+    start_time = time.time()
+    
+    for attempt in range(1, max_attempts + 1):
+        username = generate_username()
+        
+        # منع تكرار نفس اليوزر
+        while username in found_usernames:
+            username = generate_username()
+        
+        # عرض التقدم
+        print(f"[{attempt}/{max_attempts}] 🔎 جاري التحقق من: @{username} ... ", end="")
+        
+        # التحقق من التوفر
+        is_available = check_username(username)
+        
+        if is_available:
+            print(f"{Colors.GREEN}✅ متاح! 🎉{Colors.RESET}")
+            found_usernames.append(username)
+            
+            # عرض الرابط مباشرة
+            print(f"   {Colors.BLUE}📌 الرابط: https://www.tiktok.com/@{username}{Colors.RESET}")
+        else:
+            print(f"{Colors.RED}❌ غير متاح{Colors.RESET}")
+        
+        # تأخير بين المحاولات لتجنب الحظر
+        if attempt < max_attempts:
+            time.sleep(delay)
+    
+    # عرض النتائج النهائية
+    print("\n" + "="*60)
+    print(f"{Colors.YELLOW}📊 إحصائيات البحث:{Colors.RESET}")
+    print(f"   • عدد المحاولات: {max_attempts}")
+    print(f"   • الأسماء المتاحة: {len(found_usernames)}")
+    print(f"   • نسبة النجاح: {len(found_usernames)/max_attempts*100:.2f}%")
+    print(f"   • الوقت المستغرق: {time.time() - start_time:.2f} ثانية")
+    
+    if found_usernames:
+        print(f"\n{Colors.GREEN}🎯 الأسماء المتاحة التي تم العثور عليها:{Colors.RESET}")
+        print("-"*60)
+        for i, username in enumerate(found_usernames, 1):
+            print(f"{i}. https://www.tiktok.com/@{username}")
+        
+        # حفظ النتائج إذا طلب المستخدم
+        if save_output:
+            filename = save_results(found_usernames)
+            print(f"\n{Colors.GREEN}💾 تم حفظ النتائج في ملف: {filename}{Colors.RESET}")
+        
+        # عرض نصيحة
+        print(f"\n{Colors.YELLOW}💡 نصيحة: قم بالتسجيل سريعاً في هذه الأسماء قبل أن يحجزها أحد!{Colors.RESET}")
+    else:
+        print(f"\n{Colors.RED}😞 للأسف لم يتم العثور على أي اسم متاح.{Colors.RESET}")
+        print(f"{Colors.YELLOW}💡 نصيحة: حاول زيادة عدد المحاولات أو تشغيل البرنامج مرة أخرى.{Colors.RESET}")
+    
+    print("\n" + "="*60)
+    print(f"{Colors.BLUE}✨ شكراً لاستخدام البرنامج! ✨{Colors.RESET}")
+    print("="*60)
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print(f"\n\n{Colors.YELLOW}⚠️ تم إيقاف البرنامج بواسطتك.{Colors.RESET}")
+        print(f"{Colors.BLUE}👋 وداعاً!{Colors.RESET}")
+    except Exception as e:
+        print(f"\n{Colors.RED}❌ حدث خطأ: {e}{Colors.RESET}")
+        print(f"{Colors.YELLOW}💡 تأكد من اتصالك بالإنترنت وحاول مرة أخرى.{Colors.RESET}")
